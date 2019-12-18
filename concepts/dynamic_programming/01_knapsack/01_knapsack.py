@@ -23,7 +23,7 @@ class Knapsack:
         self.max_weight = max_weight
 
     def brute_force_pick_all_items(self):
-        return self.helper_brute_force_pick_choices(0, 0)
+        return self.helper_brute_pick_all_items(0, 0)
 
     def helper_brute_pick_all_items(self, curr_weight, curr_val):
         if curr_weight > self.max_weight:
@@ -36,7 +36,7 @@ class Knapsack:
             new_weight = curr_weight + choice['w']
             # only pick the item if it is under or equal to the max weight
             if new_weight <= self.max_weight:
-                new_val = self.helper_brute_force_pick_choices(new_weight, curr_val + choice['v'])
+                new_val = self.helper_brute_pick_all_items(new_weight, curr_val + choice['v'])
 
                 # compare the weight with the item picked.
                 if new_val > max_val:
@@ -61,44 +61,38 @@ class Knapsack:
 
             return max(item_picked, item_not_picked)
 
-    def top_down_selective_pick_using_cache(self):
-        self.cache = {}
-        return self.helper_top_down_selective_pick_using_cache(self.max_weight, 0)
+    def dp_pick_items(self):
+        dp = [[0 for w in range(self.max_weight + 1)] for i in range(len(self.items))]
 
-    def helper_top_down_selective_pick_using_cache(self, avail_weight, index):
-        if index >= len(self.items):
-            return 0
+        index = 0
+        r = 0
+        rows = len(self.items)
+        cols = self.max_weight
 
-        # check if the item has been cached
-        if index not in self.cache:
-            self.cache[index] = {}
+        while r < rows:
+            c = 0
+            while c <= cols:
+                if c >= self.items[index]['w']:
+                    """
+                    1. pick previous item, do not pick current item
+                    2. do not pick previous item, pick current item only
+                    3. pick previous and pick current item
+                    4. change in weight does not allow more items to be picked (3) so continue to pick current item
+                    """
+                    left = dp[r][c - 1] if c - 1 >= 0 else 0
+                    above = dp[r - 1][c] if r - 1 >= 0 else 0
+                    only_curr = self.items[index]['v']
+                    pick_all = only_curr + dp[r - 1][c - self.items[index]['w']]
+                    dp[r][c] = max(left, above, only_curr, pick_all)
+                else:
+                    left = dp[r][c - 1] if c - 1 >= 0 else 0
+                    above = dp[r - 1][c] if r - 1 >= 0 else 0
+                    dp[r][c] = max(left, above)
+                c += 1
+            index += 1
+            r += 1
 
-        cached_val = self.cache[index].get('w', None)
-        if cached_val is not None and len(cached_val) != 0:
-            return cached_val
-
-        curr_item_weight = self.items[index]['w']
-        curr_item_value = self.items[index]['v']
-
-        if avail_weight - curr_item_weight < 0:
-            # adding this item would exceed the weight, so do not pick it
-            max_value = self.helper_top_down_selective_pick_using_cache(avail_weight, index + 1)
-        else:
-            # both options are valid: pick this item or do not pick this item
-            item_picked = self.helper_top_down_selective_pick_using_cache(avail_weight - curr_item_weight, index + 1) + curr_item_value
-            item_not_picked = self.helper_top_down_selective_pick_using_cache(avail_weight, index + 1)
-
-            # if item_picked > item_not_picked:
-            #     remain_weight = avail_weight - curr_item_weight
-            #     max_value = item_picked
-            # else:
-            #     remain_weight = avail_weight
-            #     max_value = item_not_picked
-            max_value = max(item_not_picked, item_picked)
-        self.cache[index] = {'w': avail_weight, 'v': max_value}
-        print('cache after adding: ', index, self.cache)
-        return max_value
-
+        return dp[len(self.items) - 1][self.max_weight]
 
 
 class TestKnapsack(unittest.TestCase):
@@ -191,15 +185,42 @@ class TestKnapsack(unittest.TestCase):
         expected = 42
         self.assertEqual(actual, expected, "should return 42 value.")
 
-    def test_top_down_selective_pick_with_cache_solution(self):
-        max_weight = 2
+    def test_dp_solution(self):
+        max_weight = 5
         data = [
             {'w': 2, 'v': 6},
             {'w': 2, 'v': 10},
-            # {'w': 3, 'v': 12}
+            {'w': 3, 'v': 12}
         ]
         knapsack = Knapsack(data, max_weight)
 
-        actual = knapsack.top_down_selective_pick_using_cache()
+        actual = knapsack.dp_pick_items()
         expected = 22
-        self.assertEqual(actual, expected, "should return 22 value.")
+        self.assertEqual(actual, expected, 'should equal to 22')
+
+    def test_dp_solution2(self):
+        max_weight = 8
+        data = [
+            {'w': 2, 'v': 8},
+            {'w': 3, 'v': 6},
+            {'w': 4, 'v': 4}
+        ]
+        knapsack = Knapsack(data, max_weight)
+
+        actual = knapsack.dp_pick_items()
+        expected = 14
+        self.assertEqual(actual, expected, 'should equal to 14')
+
+    def test_dp_solution3(self):
+        max_weight = 11
+        data = [
+            {'w': 2, 'v': 4},
+            {'w': 5, 'v': 11},
+            {'w': 6, 'v': 20},
+            {'w': 3, 'v': 18}
+        ]
+        knapsack = Knapsack(data, max_weight)
+
+        actual = knapsack.dp_pick_items()
+        expected = 42
+        self.assertEqual(actual, expected, 'should equal to 42')
